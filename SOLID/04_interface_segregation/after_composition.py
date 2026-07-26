@@ -17,24 +17,28 @@ class Order:
         return total
 
     
+class SMSAuthorizer:
+    def __init__(self):
+        self.authorized = False
+    def verify_code(self, code):
+        print(f"Verifying SMS code {code}")
+        self.authorized = True
+    def is_authorized(self) -> bool:
+        return self.authorized
+
+    
 class BillingProcessor(ABC):
-    @abstractmethod
-    def auth_sms(self, code):
-        pass
     @abstractmethod
     def pay(self, order):
         pass
 
 
 class DebitBillingProcessor(BillingProcessor):
-    def __init__(self, security_code):
+    def __init__(self, security_code, authorizer: SMSAuthorizer):
         self.security_code = security_code
-        self.verified = False
-    def auth_sms(self, code):
-        print(f"Verifying SMS code {code}")
-        self.verified = True
+        self.authorizer = authorizer
     def pay(self, order):
-        if not self.verified:
+        if not self.authorizer.is_authorized():
             raise Exception("Not authorized")
         print("Processing debit payment type")
         print(f"Verifying security code: {self.security_code}")
@@ -44,8 +48,6 @@ class DebitBillingProcessor(BillingProcessor):
 class CreditBillingProcessor(BillingProcessor):
     def __init__(self, security_code):
         self.security_code = security_code
-    def auth_sms(self, code):
-        raise Exception("Credit card payments don't support SMS code authorization.")
     def pay(self, order):
         print("Processing credit payment type")
         print(f"Verifying security code: {self.security_code}")
@@ -53,14 +55,11 @@ class CreditBillingProcessor(BillingProcessor):
 
 
 class UpiBillingProcessor(BillingProcessor):
-    def __init__(self, upi_id):
+    def __init__(self, upi_id, authorizer: SMSAuthorizer):
         self.upi_id = upi_id
-        self.verified = False
-    def auth_sms(self, code):
-        print(f"Verifying SMS code {code}")
-        self.verified = True
+        self.authorizer = authorizer
     def pay(self, order):
-        if not self.verified:
+        if not self.authorizer.is_authorized():
             raise Exception("Not authorized")
         print("Processing UPI payment type")
         print(f"Using UPI ID: {self.upi_id}")
@@ -73,6 +72,7 @@ order.add_item("Amoxicillin", 1, 80)
 order.add_item("Cough Syrup", 1, 45)
 
 print(order.total_price())
-processor = DebitBillingProcessor("2349875")
-processor.auth_sms(465839)
+authorizer = SMSAuthorizer()
+authorizer.verify_code(465839)
+processor = UpiBillingProcessor("shobhin@upi", authorizer)
 processor.pay(order)
